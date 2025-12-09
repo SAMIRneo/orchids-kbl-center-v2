@@ -9,10 +9,10 @@ import {
 } from '@react-three/drei'
 import * as THREE from 'three'
 import { useRouter } from 'next/navigation'
-import { EffectComposer, Bloom, DepthOfField } from '@react-three/postprocessing'
+import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import { SpaceEnvironmentAAA } from './SpaceEnvironmentAAA'
 
-// --- CRYSTAL NODE ULTRA OPTIMISÉ ---
+// --- CRYSTAL NODE ULTRA OPTIMISÉ AMD ---
 const CrystalNodeHD = React.memo(({ position, color, accent, name, subtitle, route, onClick, energy }: any) => {
   const group = useRef<THREE.Group>(null!)
   const [hovered, setHover] = useState(false)
@@ -55,28 +55,28 @@ const CrystalNodeHD = React.memo(({ position, color, accent, name, subtitle, rou
           <octahedronGeometry args={[1.4, 0]} />
           <MeshTransmissionMaterial
             backside
-            samples={6}
-            resolution={512}
+            samples={4}
+            resolution={256}
             thickness={0.9}
-            chromaticAberration={0.35}
-            anisotropy={0.4}
-            distortion={0.25}
-            distortionScale={0.4}
-            temporalDistortion={0.15}
+            chromaticAberration={0.3}
+            anisotropy={0.35}
+            distortion={0.2}
+            distortionScale={0.35}
+            temporalDistortion={0.12}
             color={accent}
             roughness={0}
-            transmission={0.97}
-            ior={2.45}
+            transmission={0.96}
+            ior={2.4}
             clearcoat={1}
             clearcoatRoughness={0}
-            attenuationDistance={0.75}
+            attenuationDistance={0.7}
             attenuationColor={accent}
           />
         </mesh>
 
         {/* Noyau wireframe */}
         <mesh scale={0.65}>
-          <icosahedronGeometry args={[1, 2]} />
+          <icosahedronGeometry args={[1, 1]} />
           <meshStandardMaterial 
             color={accent}
             emissive={accent}
@@ -93,7 +93,7 @@ const CrystalNodeHD = React.memo(({ position, color, accent, name, subtitle, rou
         {[0, 1, 2].map((i) => (
           <group key={i} rotation={[Math.PI / 4 * i, Math.PI / 3 * i, 0]}>
             <mesh>
-              <ringGeometry args={[1.9 + i * 0.18, 1.95 + i * 0.18, 96]} />
+              <ringGeometry args={[1.9 + i * 0.18, 1.95 + i * 0.18, 64]} />
               <meshStandardMaterial 
                 color={color}
                 emissive={accent}
@@ -108,25 +108,25 @@ const CrystalNodeHD = React.memo(({ position, color, accent, name, subtitle, rou
           </group>
         ))}
 
-        {/* Aura hover */}
+        {/* Aura hover optimisée */}
         {hovered && (
           <>
             <Sparkles 
-              count={60} 
-              scale={5.5} 
-              size={5} 
-              speed={2.2} 
-              opacity={0.75} 
+              count={40} 
+              scale={5} 
+              size={4} 
+              speed={2} 
+              opacity={0.7} 
               color={accent} 
             />
             
-            <Sphere args={[2.4, 48, 48]}>
+            <Sphere args={[2.4, 32, 32]}>
               <meshStandardMaterial 
                 color={accent}
                 emissive={accent}
-                emissiveIntensity={1.3}
+                emissiveIntensity={1.2}
                 transparent 
-                opacity={0.13}
+                opacity={0.12}
                 side={THREE.BackSide}
                 roughness={0}
               />
@@ -279,16 +279,16 @@ const CrystalNodeHD = React.memo(({ position, color, accent, name, subtitle, rou
         {/* Trail transition */}
         {active && (
           <Trail
-            width={2.7}
-            length={7}
+            width={2.5}
+            length={6}
             color={new THREE.Color(accent)}
             attenuation={(t) => t * t}
           >
-            <Sphere args={[0.13, 14, 14]}>
+            <Sphere args={[0.12, 12, 12]}>
               <meshStandardMaterial 
                 color={accent}
                 emissive={accent}
-                emissiveIntensity={2.3}
+                emissiveIntensity={2.2}
               />
             </Sphere>
           </Trail>
@@ -326,9 +326,9 @@ const EnergyLinksHD = React.memo(() => {
           key={i} 
           points={[line.start, line.end]} 
           color={line.color} 
-          lineWidth={1.9} 
+          lineWidth={1.8} 
           transparent 
-          opacity={0.27}
+          opacity={0.25}
         />
       ))}
     </group>
@@ -354,7 +354,7 @@ const LINKS = [
   [0, 7], [0, 1], [4, 1], [7, 1], [5, 1], [8, 1], [6, 2], [9, 2], [5, 6], [8, 9]
 ]
 
-// --- COMPOSANT PRINCIPAL AAA+ ---
+// --- COMPOSANT PRINCIPAL AMD RADEON 780M OPTIMISÉ ---
 export default function SephirotTree3D() {
   const router = useRouter()
   
@@ -373,75 +373,75 @@ export default function SephirotTree3D() {
     }}>
       <Canvas 
         dpr={[1, 2]} 
-        camera={{ position: [0, 0, 52], fov: 46 }}
+        camera={{ position: [0, 0, 50], fov: 45 }}
         gl={{ 
           antialias: true,
           alpha: false,
           powerPreference: 'high-performance',
           toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 0.95,
+          toneMappingExposure: 0.7,
           outputColorSpace: THREE.SRGBColorSpace,
+          precision: 'highp',
+          logarithmicDepthBuffer: false,
         }}
-        performance={{ min: 0.5, max: 1 }}
+        performance={{ 
+          min: 0.5, 
+          max: 1,
+          debounce: 100,
+          regress: () => 1,
+        }}
         frameloop="always"
       >
-        <color attach="background" args={['#000005']} />
+        <color attach="background" args={['#000000']} />
         
-        {/* Éclairages cinématiques */}
-        <ambientLight intensity={0.17} />
-        <directionalLight position={[35, 35, 35]} intensity={1.9} color="#60a5fa" castShadow={false} />
-        <directionalLight position={[-35, -35, 35]} intensity={1.35} color="#a855f7" />
-        <pointLight position={[0, 0, 27]} intensity={1.85} color="#ffffff" />
+        {/* Éclairages optimisés AMD */}
+        <ambientLight intensity={0.15} />
+        <directionalLight position={[30, 30, 30]} intensity={1.7} color="#60a5fa" />
+        <directionalLight position={[-30, -30, 30]} intensity={1.2} color="#a855f7" />
+        <pointLight position={[0, 0, 25]} intensity={1.6} color="#ffffff" />
         <spotLight 
-          position={[0, 42, 23]} 
-          intensity={2.3} 
-          angle={0.29} 
-          penumbra={0.47} 
+          position={[0, 38, 20]} 
+          intensity={2} 
+          angle={0.27} 
+          penumbra={0.45} 
           color="#3a86ff"
-          castShadow={false}
         />
 
         {/* ENVIRONNEMENT SPATIAL AAA+ */}
         <SpaceEnvironmentAAA />
 
         {/* Arbre Sephirot */}
-        <group position={[0, 1.8, 0]}>
+        <group position={[0, 1.5, 0]}>
           <EnergyLinksHD />
           {NODES.map((node, i) => (
             <CrystalNodeHD key={i} {...node} onClick={handleNodeClick} />
           ))}
         </group>
 
-        {/* Post-processing cinématique */}
-        <EffectComposer multisampling={2}>
+        {/* Post-processing léger AMD */}
+        <EffectComposer multisampling={0}>
           <Bloom 
-            intensity={0.52} 
-            luminanceThreshold={0.32} 
-            luminanceSmoothing={0.77}
+            intensity={0.45} 
+            luminanceThreshold={0.35} 
+            luminanceSmoothing={0.7}
             mipmapBlur
-            radius={0.47}
-          />
-          <DepthOfField
-            focusDistance={0.02}
-            focalLength={0.05}
-            bokehScale={1.5}
-            height={480}
+            radius={0.4}
           />
         </EffectComposer>
 
-        {/* Contrôles optimisés */}
+        {/* Contrôles 180Hz optimisés */}
         <OrbitControls 
           enableDamping 
-          dampingFactor={0.038} 
+          dampingFactor={0.035} 
           autoRotate 
-          autoRotateSpeed={0.065} 
-          maxDistance={87} 
-          minDistance={19}
+          autoRotateSpeed={0.06} 
+          maxDistance={85} 
+          minDistance={18}
           enablePan={false}
-          maxPolarAngle={Math.PI / 1.58}
-          minPolarAngle={Math.PI / 3.58}
-          rotateSpeed={0.37}
-          zoomSpeed={0.57}
+          maxPolarAngle={Math.PI / 1.6}
+          minPolarAngle={Math.PI / 3.6}
+          rotateSpeed={0.35}
+          zoomSpeed={0.55}
           makeDefault
         />
       </Canvas>
