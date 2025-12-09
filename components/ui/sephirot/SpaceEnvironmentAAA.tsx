@@ -7,7 +7,7 @@ import { shaderMaterial } from '@react-three/drei'
 import * as THREE from 'three'
 
 // ============================================================================
-// VOLUMETRIC NEBULA SHADER - DARK SPACE VERSION
+// VOLUMETRIC NEBULA SHADER
 // ============================================================================
 
 const VolumetricNebulaMaterial = shaderMaterial(
@@ -132,7 +132,85 @@ const VolumetricNebulaMaterial = shaderMaterial(
 extend({ VolumetricNebulaMaterial })
 
 // ============================================================================
-// HDR STARFIELD OPTIMISÉ AMD
+// SHADER ANNEAUX HOLOGRAPHIQUES ULTRA-FINS
+// ============================================================================
+
+const HolographicRingMaterial = shaderMaterial(
+  {
+    time: 0,
+    color: new THREE.Color('#00ffff'),
+    opacity: 0.6,
+    thickness: 0.5,
+    speed: 1.0,
+  },
+  `
+    varying vec2 vUv;
+    varying vec3 vNormal;
+    varying vec3 vPosition;
+    
+    void main() {
+      vUv = uv;
+      vNormal = normalize(normalMatrix * normal);
+      vPosition = (modelMatrix * vec4(position, 1.0)).xyz;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  `
+    uniform float time;
+    uniform vec3 color;
+    uniform float opacity;
+    uniform float thickness;
+    uniform float speed;
+    
+    varying vec2 vUv;
+    varying vec3 vNormal;
+    varying vec3 vPosition;
+    
+    float noise(vec2 p) {
+      return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+    }
+    
+    void main() {
+      float angle = atan(vPosition.z, vPosition.x);
+      float radius = length(vPosition.xz);
+      
+      // Scanlines holographiques
+      float scanline = sin((angle + time * speed) * 30.0) * 0.5 + 0.5;
+      scanline = pow(scanline, 3.0);
+      
+      // Noise procédural
+      float n = noise(vUv * 50.0 + time * 0.5);
+      
+      // Fresnel effect
+      vec3 viewDir = normalize(cameraPosition - vPosition);
+      float fresnel = pow(1.0 - abs(dot(viewDir, vNormal)), 2.0);
+      
+      // Data streams (flux de données)
+      float dataStream = step(0.95, fract((angle + time * speed * 2.0) * 15.0 + n));
+      
+      // Circuit patterns
+      float circuit = step(0.98, sin((vUv.x + time * 0.3) * 80.0)) * step(0.97, cos((vUv.y - time * 0.2) * 60.0));
+      
+      // Couleur finale
+      vec3 finalColor = color;
+      finalColor += vec3(scanline) * 0.5;
+      finalColor += vec3(dataStream) * color * 2.0;
+      finalColor += vec3(circuit) * vec3(1.0, 1.0, 0.5);
+      
+      float alpha = fresnel * opacity;
+      alpha += scanline * 0.3;
+      alpha += dataStream * 0.4;
+      alpha *= thickness;
+      
+      gl_FragColor = vec4(finalColor, alpha);
+    }
+  `
+)
+
+extend({ HolographicRingMaterial })
+
+// ============================================================================
+// HDR STARFIELD
 // ============================================================================
 
 export const HDRStarfield = React.memo(() => {
@@ -255,62 +333,56 @@ export const HDRStarfield = React.memo(() => {
 })
 
 // ============================================================================
-// ANNEAUX PLANÉTAIRES OPTIMISÉS
+// ANNEAUX HOLOGRAPHIQUES ULTRA-FINS
 // ============================================================================
 
-export const AnimatedPlanetaryRings = React.memo(({ position = [0, 0, 0], scale = 1 }: any) => {
+export const HolographicRings = React.memo(({ position = [0, 0, 0], scale = 1 }: any) => {
   const ringsGroup = useRef<THREE.Group>(null!)
   
   const ringConfigs = useMemo(() => [
     { 
-      innerRadius: 20 * scale, 
-      outerRadius: 24 * scale, 
-      color: '#00dddd', 
-      emissive: '#00aaaa', 
-      speed: 0.0006,
-      particles: 600,
-      opacity: 0.22,
-      segments: 96
+      radius: 22 * scale, 
+      thickness: 0.08,
+      color: '#00ffff', 
+      speed: 0.8,
+      opacity: 0.65,
+      segments: 256
     },
     { 
-      innerRadius: 26 * scale, 
-      outerRadius: 30 * scale, 
-      color: '#dd00dd', 
-      emissive: '#aa00aa', 
-      speed: 0.0005,
-      particles: 800,
-      opacity: 0.18,
-      segments: 96
+      radius: 28 * scale, 
+      thickness: 0.1,
+      color: '#ff00ff', 
+      speed: 0.6,
+      opacity: 0.55,
+      segments: 256
     },
     { 
-      innerRadius: 32 * scale, 
-      outerRadius: 36 * scale, 
-      color: '#dddd00', 
-      emissive: '#aaaa00', 
-      speed: 0.0003,
-      particles: 1000,
-      opacity: 0.15,
-      segments: 96
+      radius: 34 * scale, 
+      thickness: 0.12,
+      color: '#ffff00', 
+      speed: 0.4,
+      opacity: 0.45,
+      segments: 256
     },
   ], [scale])
   
   useFrame((state) => {
     if (!ringsGroup.current) return
     
-    ringsGroup.current.rotation.y += 0.001
+    ringsGroup.current.rotation.y += 0.0015
     
     ringsGroup.current.children.forEach((child, i) => {
       const config = ringConfigs[i]
-      if (!config) return
+      if (!config || !child.children[0]) return
       
-      child.rotation.z += config.speed
+      child.rotation.z += config.speed * 0.001
       
-      const wave = Math.sin(state.clock.elapsedTime * 0.25 + i * 0.4) * 0.025
+      const wave = Math.sin(state.clock.elapsedTime * 0.3 + i * 0.5) * 0.02
       child.scale.setScalar(1 + wave)
       
-      const material = (child as THREE.Mesh).material as THREE.MeshStandardMaterial
-      if (material && material.emissiveIntensity !== undefined) {
-        material.emissiveIntensity = 0.9 + Math.sin(state.clock.elapsedTime * 0.4 + i) * 0.25
+      const material = (child.children[0] as THREE.Mesh).material as any
+      if (material.uniforms) {
+        material.uniforms.time.value = state.clock.elapsedTime
       }
     })
   })
@@ -318,51 +390,43 @@ export const AnimatedPlanetaryRings = React.memo(({ position = [0, 0, 0], scale 
   return (
     <group ref={ringsGroup} position={position}>
       {ringConfigs.map((config, i) => (
-        <mesh key={i} rotation={[Math.PI / 2, 0, i * Math.PI / 6]}>
-          <torusGeometry 
-            args={[
-              (config.innerRadius + config.outerRadius) / 2, 
-              (config.outerRadius - config.innerRadius) / 2, 
-              24, 
-              config.segments
-            ]} 
-          />
-          <meshStandardMaterial
-            color={config.color}
-            emissive={config.emissive}
-            emissiveIntensity={1}
-            transparent
-            opacity={config.opacity}
-            roughness={0.15}
-            metalness={0.7}
-            side={THREE.DoubleSide}
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-          />
-        </mesh>
-      ))}
-      
-      {ringConfigs.map((config, ringIndex) => (
-        <RingParticles key={`particles-${ringIndex}`} config={config} ringIndex={ringIndex} />
+        <group key={i} rotation={[Math.PI / 2, 0, i * Math.PI / 8]}>
+          <mesh>
+            <torusGeometry args={[config.radius, config.thickness, 8, config.segments]} />
+            <holographicRingMaterial
+              transparent
+              side={THREE.DoubleSide}
+              depthWrite={false}
+              blending={THREE.AdditiveBlending}
+              color={config.color}
+              opacity={config.opacity}
+              thickness={1.0}
+              speed={config.speed}
+            />
+          </mesh>
+        </group>
       ))}
     </group>
   )
 })
 
-const RingParticles = React.memo(({ config, ringIndex }: any) => {
-  const particlesRef = useRef<THREE.Points>(null!)
+// ============================================================================
+// ASTÉROÏDES DISTANTS
+// ============================================================================
+
+export const AsteroidField = React.memo(() => {
+  const count = 150
+  const meshRef = useRef<THREE.InstancedMesh>(null!)
   
-  const { positions, colors, sizes } = useMemo(() => {
+  const { positions, rotations, scales } = useMemo(() => {
     const pos = []
-    const cols = []
-    const szs = []
+    const rots = []
+    const scls = []
     
-    const color = new THREE.Color(config.color)
-    
-    for (let i = 0; i < config.particles; i++) {
-      const angle = (i / config.particles) * Math.PI * 2
-      const radius = config.innerRadius + Math.random() * (config.outerRadius - config.innerRadius)
-      const height = (Math.random() - 0.5) * 0.25
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2
+      const radius = 80 + Math.random() * 180
+      const height = (Math.random() - 0.5) * 60
       
       pos.push(
         Math.cos(angle) * radius,
@@ -370,47 +434,146 @@ const RingParticles = React.memo(({ config, ringIndex }: any) => {
         Math.sin(angle) * radius
       )
       
-      const brightness = 0.5 + Math.random() * 0.5
-      cols.push(color.r * brightness, color.g * brightness, color.b * brightness)
-      szs.push(0.15 + Math.random() * 0.25)
+      rots.push(
+        Math.random() * Math.PI,
+        Math.random() * Math.PI,
+        Math.random() * Math.PI
+      )
+      
+      scls.push(0.3 + Math.random() * 1.2)
     }
     
     return {
       positions: new Float32Array(pos),
-      colors: new Float32Array(cols),
-      sizes: new Float32Array(szs)
+      rotations: new Float32Array(rots),
+      scales: new Float32Array(scls)
     }
-  }, [config])
+  }, [])
+  
+  React.useEffect(() => {
+    if (!meshRef.current) return
+    
+    const dummy = new THREE.Object3D()
+    
+    for (let i = 0; i < count; i++) {
+      dummy.position.fromArray(positions, i * 3)
+      dummy.rotation.set(rotations[i * 3], rotations[i * 3 + 1], rotations[i * 3 + 2])
+      dummy.scale.setScalar(scales[i])
+      dummy.updateMatrix()
+      meshRef.current.setMatrixAt(i, dummy.matrix)
+    }
+    
+    meshRef.current.instanceMatrix.needsUpdate = true
+  }, [positions, rotations, scales])
   
   useFrame((state) => {
-    if (!particlesRef.current) return
+    if (!meshRef.current) return
     
-    const rotation = state.clock.elapsedTime * config.speed * 1.8
-    particlesRef.current.rotation.y = rotation + ringIndex * 0.4
+    for (let i = 0; i < count; i += 10) {
+      const dummy = new THREE.Object3D()
+      meshRef.current.getMatrixAt(i, dummy.matrix)
+      dummy.matrix.decompose(dummy.position, dummy.quaternion, dummy.scale)
+      
+      dummy.rotation.x += 0.001
+      dummy.rotation.y += 0.002
+      dummy.updateMatrix()
+      meshRef.current.setMatrixAt(i, dummy.matrix)
+    }
+    
+    meshRef.current.instanceMatrix.needsUpdate = true
   })
   
   return (
-    <points ref={particlesRef}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={config.particles} array={positions} itemSize={3} />
-        <bufferAttribute attach="attributes-color" count={config.particles} array={colors} itemSize={3} />
-        <bufferAttribute attach="attributes-size" count={config.particles} array={sizes} itemSize={1} />
-      </bufferGeometry>
-      <pointsMaterial
-        size={0.12}
-        vertexColors
-        transparent
-        opacity={0.75}
-        blending={THREE.AdditiveBlending}
-        sizeAttenuation
-        depthWrite={false}
+    <instancedMesh ref={meshRef} args={[undefined, undefined, count]}>
+      <dodecahedronGeometry args={[1, 0]} />
+      <meshStandardMaterial
+        color="#4a4a4a"
+        roughness={0.9}
+        metalness={0.3}
+        emissive="#1a1a1a"
+        emissiveIntensity={0.2}
       />
-    </points>
+    </instancedMesh>
   )
 })
 
 // ============================================================================
-// VOLUMETRIC NEBULA BACKGROUND
+// RAYONS COSMIQUES
+// ============================================================================
+
+export const CosmicRays = React.memo(() => {
+  const count = 30
+  const linesRef = useRef<THREE.Group>(null!)
+  
+  const lines = useMemo(() => {
+    const result = []
+    
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2
+      const distance = 60 + Math.random() * 100
+      
+      const start = new THREE.Vector3(
+        Math.cos(angle) * distance,
+        (Math.random() - 0.5) * 50,
+        Math.sin(angle) * distance
+      )
+      
+      const end = start.clone().multiplyScalar(2.5)
+      
+      result.push({
+        start,
+        end,
+        color: new THREE.Color().setHSL(Math.random(), 0.8, 0.6),
+        width: 0.5 + Math.random() * 1.5,
+        speed: 0.5 + Math.random()
+      })
+    }
+    
+    return result
+  }, [])
+  
+  useFrame((state) => {
+    if (!linesRef.current) return
+    
+    linesRef.current.children.forEach((child, i) => {
+      if (child instanceof THREE.Line) {
+        const material = child.material as THREE.LineBasicMaterial
+        const line = lines[i]
+        material.opacity = 0.2 + Math.sin(state.clock.elapsedTime * line.speed + i) * 0.15
+      }
+    })
+  })
+  
+  return (
+    <group ref={linesRef}>
+      {lines.map((line, i) => {
+        const points = [line.start, line.end]
+        return (
+          <line key={i}>
+            <bufferGeometry>
+              <bufferAttribute
+                attach="attributes-position"
+                count={2}
+                array={new Float32Array([...line.start.toArray(), ...line.end.toArray()])}
+                itemSize={3}
+              />
+            </bufferGeometry>
+            <lineBasicMaterial
+              color={line.color}
+              transparent
+              opacity={0.25}
+              blending={THREE.AdditiveBlending}
+              linewidth={line.width}
+            />
+          </line>
+        )
+      })}
+    </group>
+  )
+})
+
+// ============================================================================
+// VOLUMETRIC NEBULA
 // ============================================================================
 
 export const VolumetricNebula = React.memo(() => {
@@ -440,7 +603,7 @@ export const VolumetricNebula = React.memo(() => {
 })
 
 // ============================================================================
-// DUST CLOUDS OPTIMISÉS
+// DUST CLOUDS
 // ============================================================================
 
 export const CosmicDustClouds = React.memo(() => {
@@ -509,7 +672,7 @@ export const CosmicDustClouds = React.memo(() => {
 })
 
 // ============================================================================
-// ENVIRONNEMENT COMPLET OPTIMISÉ AMD
+// ENVIRONNEMENT COMPLET AAA+
 // ============================================================================
 
 export const SpaceEnvironmentAAA = React.memo(() => {
@@ -518,7 +681,9 @@ export const SpaceEnvironmentAAA = React.memo(() => {
       <VolumetricNebula />
       <HDRStarfield />
       <CosmicDustClouds />
-      <AnimatedPlanetaryRings position={[0, 0, 0]} scale={1} />
+      <HolographicRings position={[0, 0, 0]} scale={1} />
+      <AsteroidField />
+      <CosmicRays />
       <fog attach="fog" args={['#000000', 40, 450]} />
     </>
   )
