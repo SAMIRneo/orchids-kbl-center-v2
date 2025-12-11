@@ -15,71 +15,78 @@ interface Spaceship3DProps {
 }
 
 // ========================================
-// TEXTURE BLANC BRILLANT (Corps)
+// TEXTURE NOIR ET VERT (Corps et Ailes)
 // ========================================
-const createWhiteHullTexture = () => {
+const createBlackGreenTexture = () => {
   const canvas = document.createElement('canvas')
-  canvas.width = 512
-  canvas.height = 512
+  canvas.width = 1024
+  canvas.height = 1024
   const ctx = canvas.getContext('2d')!
   
-  // Background blanc pur
-  ctx.fillStyle = '#FFFFFF'
-  ctx.fillRect(0, 0, 512, 512)
+  // Background noir profond
+  ctx.fillStyle = '#0a0a0a'
+  ctx.fillRect(0, 0, 1024, 1024)
   
-  // Lignes tech subtiles grises
-  ctx.strokeStyle = 'rgba(200, 200, 200, 0.3)'
-  ctx.lineWidth = 1
+  // Grille hexagonale verte néon
+  ctx.strokeStyle = 'rgba(0, 255, 0, 0.4)'
+  ctx.lineWidth = 2
+  const hexSize = 40
+  
+  for (let y = 0; y < 1024; y += hexSize * 1.5) {
+    for (let x = 0; x < 1024; x += hexSize * Math.sqrt(3)) {
+      const offsetX = (y / (hexSize * 1.5)) % 2 === 0 ? 0 : hexSize * Math.sqrt(3) / 2
+      drawHexagon(ctx, x + offsetX, y, hexSize)
+    }
+  }
+  
+  // Lignes énergétiques vertes
+  ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)'
+  ctx.lineWidth = 3
+  ctx.shadowBlur = 15
+  ctx.shadowColor = '#00FF00'
+  
   for (let i = 0; i < 8; i++) {
     ctx.beginPath()
-    ctx.moveTo(0, i * 64)
-    ctx.lineTo(512, i * 64)
+    ctx.moveTo(0, i * 128)
+    ctx.lineTo(1024, i * 128)
     ctx.stroke()
     
     ctx.beginPath()
-    ctx.moveTo(i * 64, 0)
-    ctx.lineTo(i * 64, 512)
+    ctx.moveTo(i * 128, 0)
+    ctx.lineTo(i * 128, 1024)
     ctx.stroke()
+  }
+  
+  // Points lumineux verts
+  ctx.fillStyle = 'rgba(0, 255, 0, 0.6)'
+  ctx.shadowBlur = 10
+  for (let i = 0; i < 200; i++) {
+    const x = Math.random() * 1024
+    const y = Math.random() * 1024
+    const size = Math.random() * 3 + 1
+    ctx.beginPath()
+    ctx.arc(x, y, size, 0, Math.PI * 2)
+    ctx.fill()
   }
   
   const texture = new THREE.CanvasTexture(canvas)
   texture.wrapS = THREE.RepeatWrapping
   texture.wrapT = THREE.RepeatWrapping
+  texture.repeat.set(2, 2)
   return texture
 }
 
-// ========================================
-// TEXTURE ROUGE DÉGRADÉ (Ailes)
-// ========================================
-const createRedGradientTexture = () => {
-  const canvas = document.createElement('canvas')
-  canvas.width = 512
-  canvas.height = 512
-  const ctx = canvas.getContext('2d')!
-  
-  // Gradient vertical rouge vif → rouge sombre
-  const gradient = ctx.createLinearGradient(0, 0, 0, 512)
-  gradient.addColorStop(0, '#FF0000')    // Rouge vif
-  gradient.addColorStop(0.5, '#DC143C')  // Crimson
-  gradient.addColorStop(1, '#8B0000')    // Rouge sombre
-  
-  ctx.fillStyle = gradient
-  ctx.fillRect(0, 0, 512, 512)
-  
-  // Lignes énergétiques
-  ctx.strokeStyle = 'rgba(255, 100, 100, 0.4)'
-  ctx.lineWidth = 2
+const drawHexagon = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => {
+  ctx.beginPath()
   for (let i = 0; i < 6; i++) {
-    ctx.beginPath()
-    ctx.moveTo(0, i * 85)
-    ctx.lineTo(512, i * 85)
-    ctx.stroke()
+    const angle = (Math.PI / 3) * i
+    const px = x + size * Math.cos(angle)
+    const py = y + size * Math.sin(angle)
+    if (i === 0) ctx.moveTo(px, py)
+    else ctx.lineTo(px, py)
   }
-  
-  const texture = new THREE.CanvasTexture(canvas)
-  texture.wrapS = THREE.RepeatWrapping
-  texture.wrapT = THREE.RepeatWrapping
-  return texture
+  ctx.closePath()
+  ctx.stroke()
 }
 
 export default function Spaceship3D({ position, velocity, rotation, boosting, isMoving }: Spaceship3DProps) {
@@ -89,11 +96,8 @@ export default function Spaceship3D({ position, velocity, rotation, boosting, is
   
   const { scene } = useGLTF('/spaceship.glb')
   
-  // Créer textures
-  const textures = useMemo(() => ({
-    white: createWhiteHullTexture(),
-    redGradient: createRedGradientTexture()
-  }), [])
+  // Créer texture noir et vert
+  const blackGreenTexture = useMemo(() => createBlackGreenTexture(), [])
 
   const clonedScene = useMemo(() => {
     const clone = scene.clone()
@@ -102,24 +106,14 @@ export default function Spaceship3D({ position, velocity, rotation, boosting, is
         child.castShadow = true
         child.receiveShadow = true
         
-        // Détection automatique des parties
+        // Détection cockpit
         const childName = child.name.toLowerCase()
         const bbox = child.geometry.boundingBox
         
-        // PARTIE 1: COCKPIT (rouge terne)
         const isCockpit = childName.includes('cockpit') || 
                          childName.includes('glass') ||
                          childName.includes('canopy') ||
                          (bbox && Math.abs(bbox.max.z - bbox.min.z) < 0.8 && bbox.max.y > 0)
-        
-        // PARTIE 3: AILES/FLAMMES (rouge dégradé)
-        // Généralement plus larges en X ou nommées "wing", "engine", "thruster"
-        const isWing = childName.includes('wing') ||
-                      childName.includes('engine') ||
-                      childName.includes('thruster') ||
-                      childName.includes('flame') ||
-                      (bbox && Math.abs(bbox.max.x - bbox.min.x) > 1.5) ||
-                      (bbox && bbox.min.z < -1)
         
         if (isCockpit) {
           // 🔴 COCKPIT - Rouge terne
@@ -132,33 +126,22 @@ export default function Spaceship3D({ position, velocity, rotation, boosting, is
             emissive: new THREE.Color('#4A0000'),
             emissiveIntensity: 0.2
           })
-        } else if (isWing) {
-          // 🔴 AILES/FLAMMES - Rouge dégradé
-          child.material = new THREE.MeshStandardMaterial({
-            map: textures.redGradient,
-            color: '#FF0000',
-            metalness: 0.8,
-            roughness: 0.2,
-            emissive: new THREE.Color('#FF0000'),
-            emissiveIntensity: 0.3,
-            side: THREE.DoubleSide
-          })
         } else {
-          // ⚪ CORPS CENTRAL - Blanc brillant
+          // ⚫💚 TOUT LE RESTE - Noir et Vert
           child.material = new THREE.MeshStandardMaterial({
-            map: textures.white,
-            color: '#FFFFFF',
+            map: blackGreenTexture,
+            color: '#0a0a0a',
             metalness: 0.9,
-            roughness: 0.1,
-            envMapIntensity: 2,
-            emissive: new THREE.Color('#CCCCCC'),
-            emissiveIntensity: 0.1
+            roughness: 0.2,
+            emissive: new THREE.Color('#00FF00'),
+            emissiveIntensity: 0.25,
+            envMapIntensity: 1.5
           })
         }
       }
     })
     return clone
-  }, [scene, textures])
+  }, [scene, blackGreenTexture])
 
   useFrame((state, delta) => {
     if (!groupRef.current) return
@@ -178,12 +161,12 @@ export default function Spaceship3D({ position, velocity, rotation, boosting, is
       engineGlowRef.current.scale.setScalar((0.3 + engineIntensity * 0.7) * pulse * boostScale)
     }
     
-    // Animation émissive
+    // Animation émissive verte
     groupRef.current.traverse((child) => {
       if (child instanceof THREE.Mesh && child.material) {
         const mat = child.material as THREE.MeshStandardMaterial
-        if (mat.emissive && mat.emissive.r > 0) {
-          mat.emissiveIntensity = 0.2 + Math.sin(timeRef.current * 2) * 0.1
+        if (mat.emissive && mat.emissive.g > 0) {
+          mat.emissiveIntensity = 0.2 + Math.sin(timeRef.current * 3) * 0.1
         }
       }
     })
