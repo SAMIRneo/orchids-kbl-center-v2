@@ -159,19 +159,39 @@ export default function Spaceship3D({ position, velocity, rotation, boosting, is
         child.castShadow = true
         child.receiveShadow = true
         
-        // Matériau premium avec textures
-        child.material = new THREE.MeshStandardMaterial({
-          map: textures.hull,
-          emissiveMap: textures.emission,
-          emissive: new THREE.Color('#3b82f6'), // Bleu électrique
-          emissiveIntensity: 0.4,
-          metalness: 0.95,
-          roughness: 0.15,
-          envMapIntensity: 1.8,
-          side: THREE.FrontSide,
-          transparent: false,
-          opacity: 1
-        })
+        // Détecter le cockpit (généralement plus petit ou nommé)
+        const isCockpit = child.name.toLowerCase().includes('cockpit') || 
+                         child.name.toLowerCase().includes('glass') ||
+                         child.name.toLowerCase().includes('canopy') ||
+                         child.geometry.boundingBox && 
+                         (child.geometry.boundingBox.max.y - child.geometry.boundingBox.min.y) < 0.5
+        
+        if (isCockpit) {
+          // Matériau cockpit rouge terne
+          child.material = new THREE.MeshStandardMaterial({
+            color: '#8B0000', // Rouge foncé terne (Dark Red)
+            metalness: 0.6,
+            roughness: 0.4,
+            transparent: true,
+            opacity: 0.85,
+            emissive: new THREE.Color('#4A0000'),
+            emissiveIntensity: 0.2
+          })
+        } else {
+          // Matériau coque normal
+          child.material = new THREE.MeshStandardMaterial({
+            map: textures.hull,
+            emissiveMap: textures.emission,
+            emissive: new THREE.Color('#3b82f6'),
+            emissiveIntensity: 0.4,
+            metalness: 0.95,
+            roughness: 0.15,
+            envMapIntensity: 1.8,
+            side: THREE.FrontSide,
+            transparent: false,
+            opacity: 1
+          })
+        }
       }
     })
     return clone
@@ -212,25 +232,36 @@ export default function Spaceship3D({ position, velocity, rotation, boosting, is
       <primitive object={clonedScene} scale={[1, 1, 1]} rotation={[0, Math.PI, 0]} />
       
       {/* ========================================
-          EFFETS MOTEURS QUANTUM - TRIPLE COULEUR
+          🔥 EFFETS MOTEURS - DÉGRADÉ DE ROUGES
           ======================================== */}
       <group ref={engineGlowRef} position={[0, 0, -1.5]}>
-        {/* Core bleu électrique */}
+        {/* Core rouge vif (#FF0000) */}
         <mesh>
           <sphereGeometry args={[0.35, 20, 20]} />
           <meshBasicMaterial 
-            color="#3b82f6" 
+            color="#FF0000" 
             transparent 
-            opacity={0.85}
+            opacity={0.9}
             toneMapped={false}
           />
         </mesh>
         
-        {/* Halo externe doré */}
-        <mesh scale={1.5}>
+        {/* Couche orange-rouge (#FF4500) */}
+        <mesh scale={1.3}>
+          <sphereGeometry args={[0.35, 18, 18]} />
+          <meshBasicMaterial 
+            color="#FF4500" 
+            transparent 
+            opacity={0.6}
+            toneMapped={false}
+          />
+        </mesh>
+        
+        {/* Halo externe rouge sombre (#8B0000) */}
+        <mesh scale={1.7}>
           <sphereGeometry args={[0.35, 16, 16]} />
           <meshBasicMaterial 
-            color="#FFD700" 
+            color="#8B0000" 
             transparent 
             opacity={0.3}
             toneMapped={false}
@@ -238,42 +269,54 @@ export default function Spaceship3D({ position, velocity, rotation, boosting, is
           />
         </mesh>
         
-        {/* Particules quantum (bleu + or) */}
+        {/* Particules dégradé rouge */}
         {isMoving && (
           <>
+            {/* Flammes rouge vif */}
             <Sparkles
               count={boosting ? 150 : 80}
               scale={[2.5, 2.5, boosting ? 9 : 4.5]}
               position={[0, 0, boosting ? -4 : -2]}
               speed={boosting ? 8 : 5}
-              color="#3b82f6"
+              color="#FF0000"
               size={boosting ? 12 : 6}
-              opacity={0.8}
+              opacity={0.85}
             />
             
-            {/* Particules dorées (boost) */}
+            {/* Flammes orange-rouge (boost) */}
             {boosting && (
               <Sparkles
-                count={60}
-                scale={[2, 2, 6]}
-                position={[0, 0, -3]}
-                speed={6}
-                color="#FFD700"
-                size={8}
-                opacity={0.6}
+                count={80}
+                scale={[2.2, 2.2, 7]}
+                position={[0, 0, -3.5]}
+                speed={7}
+                color="#FF4500"
+                size={10}
+                opacity={0.7}
               />
             )}
+            
+            {/* Flammes rouge sombre (fond) */}
+            <Sparkles
+              count={60}
+              scale={[2, 2, boosting ? 6 : 3]}
+              position={[0, 0, boosting ? -3 : -1.5]}
+              speed={boosting ? 6 : 4}
+              color="#8B0000"
+              size={8}
+              opacity={0.5}
+            />
           </>
         )}
       </group>
 
-      {/* Trail en mouvement - Gradient bleu/or */}
+      {/* Trail dégradé rouge */}
       {isMoving && (
         <group position={[0, 0, -2]}>
           <Trail
             width={boosting ? 4 : 2}
             length={boosting ? 16 : 8}
-            color={new THREE.Color(boosting ? "#FFD700" : "#3b82f6")}
+            color={new THREE.Color(boosting ? "#FF4500" : "#FF0000")}
             attenuation={(t) => t * t * t}
           >
             <mesh visible={false}>
@@ -283,12 +326,12 @@ export default function Spaceship3D({ position, velocity, rotation, boosting, is
         </group>
       )}
       
-      {/* Aura quantum (anneau bleu) */}
+      {/* Aura rouge (anneau en boost) */}
       {boosting && (
         <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, -1]}>
           <ringGeometry args={[0.8, 1.2, 32]} />
           <meshBasicMaterial 
-            color="#3b82f6" 
+            color="#FF0000" 
             transparent 
             opacity={0.5} 
             side={THREE.DoubleSide}
